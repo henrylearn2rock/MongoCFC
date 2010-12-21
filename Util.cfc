@@ -202,9 +202,30 @@
 			return obj;
 		}
 		
+		if (isSimpleValue(obj))
+		{
+			if (isUUID(obj))
+				return createObject("java","java.util.UUID").fromString(insert('-', obj, 23));
+		
+			if (isGUID(obj))
+				return createObject("java","java.util.UUID").fromString(obj);
+		}
+
+
 		// String and other non-CF types
 		return obj;		
 	}
-	
+
+
+	boolean function isUUID(required string str)
+	{
+		return len(str) == 35 && reFindNoCase("^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{16}$", str);
+	}
+
+
+	boolean function isGUID(required string str)
+	{
+		return len(str) == 36 && reFindNoCase("^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$", str);
+	}	
 	
 }
