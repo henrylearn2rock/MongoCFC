@@ -21,6 +21,7 @@ component accessors="true"
 			variables.mongo = createObject("java","com.mongodb.Mongo").init(replicaSetSeeds);
 		
 		variables.util = new Util();
+		variables.util.setMongo(this);
 		
 		return this;
 	}
@@ -85,6 +86,9 @@ component accessors="true"
 	/** @writeConcern see: <a href="http://api.mongodb.org/java/current/com/mongodb/WriteConcern.html"><code>com.mongodb.WriteConcern</code></a> */
 	void function setWriteConcern(required writeConcern)
 	{
+		if(!isInstanceOf(writeConcern, "com.mongodb.WriteConcern"))
+			throw(message="argument writeConcern must be of Java type com.mongodb.WriteConcern");
+	
 		variables.mongo.setWriteConcern(writeConcern);
 	}
 	

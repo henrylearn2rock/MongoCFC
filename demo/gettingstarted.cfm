@@ -8,6 +8,7 @@ h2{
 </style>
 
 <cfscript>
+	import com.mongoCFC.*;
 
 	//initialize the core cfmongodb Mongo object
 	mongo = new Mongo();

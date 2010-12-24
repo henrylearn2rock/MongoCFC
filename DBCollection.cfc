@@ -32,33 +32,45 @@ component accessors="true"
 	*/
 	function insert(required doc, concern)
 	{
+		if (!isNull(concern) && !isInstanceOf(concern, "com.mongodb.WriteConcern"))
+			throw(message="argument concern must be of Java type com.mongodb.WriteConcern");
+			
 		if (isStruct(doc))
-		{
-			var list = variables.util.arrayListNew();
+			return insertSingle(argumentCollection=arguments);
+		
+		if (isArray(doc))
+			return insertMulti(argumentCollection=arguments);
+		
+		throw(message="argument 'doc' must be a struct or an array");
+	}
+	
+	
+	private function insertSingle(required struct doc, concern)
+	{
+		var dbObject = variables.util.toDBObject(doc, variables.db); 
 
-			list[1] = variables.util.toDBObject(doc); 
-			
-			local.writeResult = isNull(concern) ? 
-					variables.dbCollection.insert(list) : 
-					variables.dbCollection.insert(list, concern);
-			
-			doc["_id"] = list[1]["_id"];
-		}
-		else if (isArray(doc))						//insert multiple docs
-		{
-			for (var i = 1; i <= arrayLen(doc); i++)
-				if (!variables.util.isDBObject(doc[i]))
-					doc[i] = variables.util.toDBObject(doc[i]);
+		if (isNull(concern))
+			concern = getWriteConcern();
+		
+		var writeResult = variables.dbCollection.insert(dbObject, concern);
+		
+		doc["_id"] = dbObject["_id"];
+		
+		return writeResult;
+	}
 
-			local.writeResult = isNull(concern) ? 
-					variables.dbCollection.insert(doc) : 
-					variables.dbCollection.insert(doc, concern);
-		}
-		else 
-			throw(message="argument 'doc' must be a struct or an array");
+	
+	private function insertMulti(required array doc, concern)
+	{
+		var docLen = arrayLen(doc);
+		
+		for (var i = 1; i <= docLen; i++)
+			if (!variables.util.isDBObject(doc[i]))
+				doc[i] = variables.util.toDBObject(doc[i], variables.db);
 
-
-		return local.writeResult; 
+		return isNull(concern) ? 
+				variables.dbCollection.insert(doc) : 
+				variables.dbCollection.insert(doc, concern);
 	}
 	
 	
@@ -76,8 +88,8 @@ component accessors="true"
 		if (isNull(criteria))
 			criteria = {};
 			
-		criteria	= variables.util.toDBObject(criteria);
-		objNew 		= variables.util.toDBObject(objNew);
+		criteria	= variables.util.toDBObject(criteria, variables.db);
+		objNew 		= variables.util.toDBObject(objNew, variables.db);
 		upsert 		= javacast("boolean", upsert);
 		multi 		= javacast("boolean", multi);
 		
@@ -98,7 +110,7 @@ component accessors="true"
 		if (isNull(query))
 			query = {};
 			
-		query = variables.util.toDBObject(query);
+		query = variables.util.toDBObject(query, variables.db);
 	
 		return isNull(concern) ? 
 			variables.dbCollection.remove(query) : 
@@ -121,7 +133,7 @@ component accessors="true"
 		if (isNull(fields))
 			fields = {};
 		
-		query = variables.util.toDBObject(query);
+		query = variables.util.toDBObject(query, variables.db);
 		fields = variables.util.toDBObject(fields);
 		
 		var dbCursor = isNull(options) ?
@@ -148,7 +160,7 @@ component accessors="true"
 		if (isNull(fields))
 			fields = {};
 		
-		query = variables.util.toDBObject(query);
+		query = variables.util.toDBObject(query, variables.db);
 		fields = variables.util.toDBObject(fields);
 		
 		return variables.dbCollection.findOne(query, fields);
@@ -180,11 +192,11 @@ component accessors="true"
 			throw (message="The sort argument passed to the findAndModify function is not of type OrderedStruct");
 				
 		return variables.dbCollection.findAndModify(
-			isNull(query)	? javacast("null","") : variables.util.toDBObject(query), 
+			isNull(query)	? javacast("null","") : variables.util.toDBObject(query, variables.db), 
 			isNull(fields) 	? javacast("null","") : variables.util.toDBObject(fields), 
 			isNull(sort) 	? javacast("null","") : variables.util.toDBObject(sort), 
 			javacast("boolean", remove), 
-			isNull(update) 	? javacast("null","") : variables.util.toDBObject(update), 
+			isNull(update) 	? javacast("null","") : variables.util.toDBObject(update, variables.db), 
 			javacast("boolean", new), 
 			javacast("boolean", upsert));
 	}
@@ -251,8 +263,8 @@ component accessors="true"
 	 */
 	function save(required struct object, concern)
 	{
-		var dbObject = variables.util.toDBObject(object);
-		
+		var dbObject = variables.util.toDBObject(object, variables.db);
+
 		var writeResult = isNull(concern) ? 
 			variables.dbCollection.save(dbObject) : 
 			variables.dbCollection.save(dbObject, concern);
@@ -284,7 +296,7 @@ component accessors="true"
 		if (isNull(query))
 			query = {};
 		
-		query = variables.util.toDBObject(keys);
+		query = variables.util.toDBObject(keys, variables.db);
 		
 		return variables.dbCollection.count(query);
 	}
@@ -292,7 +304,7 @@ component accessors="true"
 	
 	numeric function getCount(struct query, struct fields, numeric limit=0, numeric skip=0)
 	{
-		query = isNull(query) ? variables.util.dbObjectNew({}) : variables.util.toDBObject(query);
+		query = isNull(query) ? variables.util.dbObjectNew({}) : variables.util.toDBObject(query, variables.db);
 		fields = isNull(fields) ? variables.util.dbObjectNew({}) : variables.util.toDBObject(fields);
 		limit = javacast("long", limit);
 		skip = javacast("long", skip);
@@ -321,7 +333,7 @@ component accessors="true"
 	{
 		key = isNull(key) ? variables.util.dbObjectNew({}) : variables.util.toDBObject(key);
 		initial = isNull(initial) ? variables.util.dbObjectNew({}) : variables.util.toDBObject(initial);
-		cond = isNull(cond) ? variables.util.dbObjectNew({}) : variables.util.toDBObject(cond);
+		cond = isNull(cond) ? variables.util.dbObjectNew({}) : variables.util.toDBObject(cond, variables.db);
 		
 		return variables.dbCollection.group(key, cond, initial, reduce);
 	}
@@ -331,7 +343,7 @@ component accessors="true"
 	{
 		return isNull(query) ? 
 			variables.dbCollection.distinct(key) 
-			: variables.dbCollection.distinct(key, variables.util.toDBObject(query)); 
+			: variables.dbCollection.distinct(key, variables.util.toDBObject(query, toDBObject)); 
 	}
 	
 	
@@ -408,9 +420,12 @@ component accessors="true"
 	/**
 		@concern <a href="http://api.mongodb.org/java/current/com/mongodb/WriteConcern.html"><code>com.mongodb.WriteConcern</code></a>
 	 */
-	void function setWriteConcern(required concern)
+	void function setWriteConcern(required writeConcern)
 	{
-		variables.dbCollection.setWriteConcern(concern);
+		if(!isInstanceOf(writeConcern, "com.mongodb.WriteConcern"))
+			throw(message="argument concern must be of Java type com.mongodb.WriteConcern");
+			
+		variables.dbCollection.setWriteConcern(writeConcern);
 	}
 
 

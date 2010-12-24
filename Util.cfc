@@ -1,4 +1,4 @@
-﻿component
+﻿﻿component
 {
 	/** return <code>java.util.ArrayList</code> that enables passed-by-reference in ColdFusion */
 	array function arrayListNew(Array array)
@@ -93,10 +93,32 @@
 		return isInstanceOf(obj, "com.mongodb.DBObject");
 	}
 
-
-	function toDBObject(required Struct struct)
+	
+	/** search for struct with key '$ref' and create DBRef objects for the struct */
+	struct function toDBRef(required struct obj, required DB db)
 	{
-		return dbObjectNew( boxObjectID( javaTyped(struct) ) );
+		var searchResults = structFindKey(obj, "$ref", "all");
+		
+		for (local.result in searchResults)
+		{
+			var dbRefStruct = result.owner;
+			var dbRef = createObject("java","com.mongodb.DBRef").init(db.getDB(), dbRefStruct["$ref"], dbRefStruct["$id"]);
+			
+			var path = left(result.path, len(result.path) - len(".$ref"));		// path of struct that contains $ref 
+			
+			evaluate("obj#path# = dbRef");
+		}
+		
+		return obj;
+	}
+	
+	
+	/** @db passed in to resolve DBRef */
+	struct function toDBObject(required Struct struct, DB db)
+	{
+		javaTyped(struct);
+		
+		return isNull(db) ? dbObjectNew(struct) : dbObjectNew( toDBRef(struct, db) );
 	}
 
 
@@ -122,8 +144,8 @@
 	
 	Date function getTimestamp(required struct obj)
 	{
-		if (!structKeyExists(obj, "_id"))
-			throw (message="timestamp not available")
+		if (!structKeyExists(obj, "_id") || !isObjectID(obj["_id"]))
+			throw (message="timestamp not available from '_id'");
 		
 		return createObject("java", "java.util.Date").init(obj["_id"].getTime());
 	}
@@ -158,33 +180,48 @@
 	
 
 	/** convert ColdFusion variable type into Java's equivalent.
-			Stromg  -> java.lang.String (unchanged).
-			Numeric -> double, int or long.
-			Boolean -> boolean.
-			Date    -> java.util.Date (unchanged).
-			Array   -> convert items into Java's equivalent.
-			Struct  -> convert items into Java's equivalent.
-			UDF		-> null.
+			Stromg  	-> java.lang.String (unchanged).
+			Numeric 	-> double, int or long.
+			Boolean 	-> boolean.
+			Date    	-> java.util.Date (unchanged).
+			Array   	-> convert items into Java's equivalent.
+			Struct  	-> convert items into Java's equivalent.
+			GUID/UUID 	-> java.util.UUID
+			UDF			-> null.
 	*/
 	function javaTyped(obj)
 	{
 		if (isNull(obj) || isCustomFunction(obj))
 			return;
 		
-		if (isNumeric(obj))
+		if (isSimpleValue(obj))
 		{
-			if (obj != int(obj)) 
-				return javacast("double", obj);
+			if (isNumeric(obj))
+			{
+				if (obj != int(obj)) 
+					return javacast("double", obj);
+	
+				// between java.lang.Integer.MIN_VALUE and java.lang.Integer.MAX_VALUE
+				if (-2147483648 <= obj && obj <= 2147483647)
+					return javacast("int", obj);
+	
+				return javacast("long", obj); 
+			}
+			
+			if (isBoolean(obj))
+				return javaCast("boolean", obj);
 
-			// between java.lang.Integer.MIN_VALUE and java.lang.Integer.MAX_VALUE
-			if (-2147483648 <= obj && obj <= 2147483647)
-				return javacast("int", obj);
-
-			return javacast("long", obj); 
-		}
+			if (isValid("UUID", obj))
+				return createObject("java","java.util.UUID").fromString(insert('-', obj, 23));
 		
-		if (isBoolean(obj))
-			return javaCast("boolean", obj);
+			if (isValid("GUID", obj))
+				return createObject("java","java.util.UUID").fromString(obj);
+			
+			// isDate disabled. Too slow, and not very useful
+			
+			//if (isDate(obj))
+			//	return dateAdd("n", 0, obj);
+		}
 
 		if (isArray(obj))
 		{
@@ -202,30 +239,8 @@
 			return obj;
 		}
 		
-		if (isSimpleValue(obj))
-		{
-			if (isUUID(obj))
-				return createObject("java","java.util.UUID").fromString(insert('-', obj, 23));
-		
-			if (isGUID(obj))
-				return createObject("java","java.util.UUID").fromString(obj);
-		}
-
-
 		// String and other non-CF types
-		return obj;		
+		return obj;
 	}
-
-
-	boolean function isUUID(required string str)
-	{
-		return len(str) == 35 && reFindNoCase("^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{16}$", str);
-	}
-
-
-	boolean function isGUID(required string str)
-	{
-		return len(str) == 36 && reFindNoCase("^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$", str);
-	}	
 	
 }
