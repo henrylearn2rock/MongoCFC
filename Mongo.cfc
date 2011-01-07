@@ -15,15 +15,20 @@ component accessors="true"
 	 */
 	Mongo function init(string host="127.0.0.1", numeric port=27017, array replicaSetSeeds)
 	{
-		if (isNull(replicaSetSeeds))
-			variables.mongo = createObject("java","com.mongodb.Mongo").init(host, port);
-		else
-			variables.mongo = createObject("java","com.mongodb.Mongo").init(replicaSetSeeds);
-		
-		variables.util = new Util();
-		variables.util.setMongo(this);
-		
-		return this;
+		try {
+			if (isNull(replicaSetSeeds))
+				variables.mongo = createObject("java","com.mongodb.Mongo").init(host, port);
+			else
+				variables.mongo = createObject("java","com.mongodb.Mongo").init(replicaSetSeeds);
+
+			variables.util = new Util();
+			
+			return this;
+		} catch (any e)
+		{
+			// repackage exception
+			throw(type=e.cause.cause.type, message="#e.cause.cause.message#, #e.cause.cause.cause.message#");
+		}
 	}
 
 	

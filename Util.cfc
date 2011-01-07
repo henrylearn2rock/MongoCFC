@@ -1,4 +1,4 @@
-﻿﻿component
+﻿component
 {
 	/** return <code>java.util.ArrayList</code> that enables passed-by-reference in ColdFusion */
 	array function arrayListNew(Array array)
@@ -16,11 +16,9 @@
 
 
 	/** return <code>java.util.LinkedHashMap</code> that preserves order of insertion */
-	struct function orderedStructNew(Struct struct)
+	struct function orderedStructNew()
 	{
-		return isNull(struct) ? 
-			createObject("java","java.util.LinkedHashMap").init() :
-			createObject("java","java.util.LinkedHashMap").init(struct);
+		return createObject("java","java.util.LinkedHashMap").init();
 	}
 	
 	
@@ -59,12 +57,17 @@
 				else if (key.startsWith("$"))
 					key = replaceList(lcase(key), "$addtoset,$pushall,$putall", "$addToSet,$pushAll,$putAll");
 			
-				var value = obj[key];
+				if (!structKeyExists(obj, key))
+					dbObject[key] = javacast("null","");
+				else
+				{
+					var value =  obj[key];
+					
+					if (isStruct(value) || isArray(value))
+						value = dbObjectNew(value);
 				
-				if (isStruct(value) || isArray(value))
-					value = dbObjectNew(value);
-				
-				dbObject[key] = value;
+					dbObject[key] = value;
+				} 
 			}
 
 			return dbObject;
@@ -75,10 +78,15 @@
 			
 			for (local.item in obj)
 			{
-				if (isStruct(item) || isArray(item))
-					item = dbObjectNew(item);
+				if (isNull(item))
+					arrayAppend(dbObject, javacast("null",""));
+				else 
+				{
+					if (isStruct(item) || isArray(item))
+						item = dbObjectNew(item);
 			
-				arrayAppend(dbObject, item);
+					arrayAppend(dbObject, isNull(item) ? javacast("null","") : item);
+				}
 			}
 
 			return dbObject;
@@ -180,7 +188,7 @@
 	
 
 	/** convert ColdFusion variable type into Java's equivalent.
-			Stromg  	-> java.lang.String (unchanged).
+			String  	-> java.lang.String (unchanged).
 			Numeric 	-> double, int or long.
 			Boolean 	-> boolean.
 			Date    	-> java.util.Date (unchanged).
@@ -226,7 +234,7 @@
 		if (isArray(obj))
 		{
 			for (var i = 1; i <= arrayLen(obj); i++)
-				obj[i] = javaTyped(obj[i]);
+				obj[i] = arrayIsDefined(obj, i) ? javaTyped(obj[i]) : javacast("null", "");
 			
 			return obj;
 		}
@@ -234,7 +242,7 @@
 		if (isStruct(obj))
 		{
 			for (local.k in obj)
-				obj[k] = javaTyped(obj[k]);
+				obj[k] = structKeyExists(obj, k) ? javaTyped(obj[k]) : javacast("null", "");					
 			
 			return obj;
 		}
