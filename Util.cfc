@@ -55,7 +55,7 @@
 				if (compareNoCase(key,"_ID")==0)
 					key = "_id";
 				else if (key.startsWith("$"))
-					key = replaceList(lcase(key), "$addtoset,$pushall,$putall", "$addToSet,$pushAll,$putAll");
+					key = replaceList(lcase(key), "$addtoset,$pushall,$putall,$maxdistance", "$addToSet,$pushAll,$putAll,$maxDistance");
 			
 				if (!structKeyExists(obj, key))
 					dbObject[key] = javacast("null","");
@@ -63,7 +63,7 @@
 				{
 					var value =  obj[key];
 					
-					if (isStruct(value) || isArray(value))
+					if (isStruct(value) || (isArray(value) && !isBinary(value)))
 						value = dbObjectNew(value);
 				
 					dbObject[key] = value;
@@ -82,7 +82,7 @@
 					arrayAppend(dbObject, javacast("null",""));
 				else 
 				{
-					if (isStruct(item) || isArray(item))
+					if (isStruct(item) || (isArray(item) && !isBinary(item)))
 						item = dbObjectNew(item);
 			
 					arrayAppend(dbObject, isNull(item) ? javacast("null","") : item);
@@ -231,7 +231,7 @@
 			//	return dateAdd("n", 0, obj);
 		}
 
-		if (isArray(obj))
+		if (isArray(obj) && !isBinary(obj))		// binary is an array in CF :S
 		{
 			for (var i = 1; i <= arrayLen(obj); i++)
 				obj[i] = arrayIsDefined(obj, i) ? javaTyped(obj[i]) : javacast("null", "");
