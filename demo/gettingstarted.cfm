@@ -242,7 +242,7 @@ h2{
 	//here's how to add indexes onto collections for faster querying
 	people.ensureIndex({NAME=1});
 	people.ensureIndex({BIKE=1});
-	people.ensureIndex({KIDS.AGE=1});
+	people.ensureIndex({"KIDS.AGE"=1});
 	writeDump(var=people.getIndexes(), label="Indexes", expand="false");
 
 
