@@ -96,9 +96,9 @@
 	}
 	
 
-	boolean function isDBObject(required obj)
+	boolean function isDBObject(obj)
 	{
-		return isInstanceOf(obj, "com.mongodb.DBObject");
+		return !isNull(obj) && isInstanceOf(obj, "com.mongodb.DBObject");
 	}
 
 	
